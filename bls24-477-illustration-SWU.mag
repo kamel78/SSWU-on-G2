@@ -1,0 +1,130 @@
+clear;
+R<x>:=PolynomialRing(Rationals());
+// Parametres of the BLS-24 Curve 
+px:=((x-1)^2*(x^8-x^4+1))/3+x;     // Characteristic of the curve (prime)
+rx:=x^8-x^4+1;                     // order of the Torsion sub-group (prime)
+tx:=x+1;                            // Trace of Frobinus of the curve on G1
+nx:=(x-1)^2+(x^8-x^4 + 1)/3;
+_tr:=[2,tx];
+for i:=2 to 4 do
+    _tr:=Append(_tr,tx*_tr[i]-px*_tr[i-1]);
+end for;
+trEp4:=(3*Sqrt((4*(px^4)-(_tr[5]^2))/3)+_tr[5])/2;
+NPointsE4:=px^4+1-trEp4;            // Order of EP4 (Number of points)
+hx:=NPointsE4 / rx;                // Cofactor of the twiste curve on G2
+//*-----------------------------------------------------------------------------------------------------------------------------------------//
+x0:=-0xdfff80000080;
+p:=Integers()!Evaluate(px,x0); 
+r:=Integers()!Evaluate(rx,x0);  // Order of the curve
+Fr:=GF(r);
+Fp:=GF(p);
+Fp2<u>:=ExtensionField<Fp,u|u^2+1>;
+Fp4<v>:=ExtensionField<Fp2,v|v^2-(1+u)>;
+//*-----------------------------------------------------------------------------------------------------------------------------------------//
+B:=4;
+E:=EllipticCurve([Fp4|0,B*v]);                  // Twiste MType
+IsoE:=EllipticCurve([Fp4|30-30*u,88*v]);        // Isogenius curve of the Twiste 
+
+h:=Integers()!Evaluate(hx,x0) ; // Cofactor of E to generate points on torsion sub-group
+//*-----------------------------------------------------------------------------------------------------------------------------------------//
+// Polynomial coefficients of the dual isogeny \bar{ϕ}
+dual_Xnum:=[0xb393c7d631dead803f5dc7b49d1559edecfc967a1be1ccec9474a5ff4d025004fed4f467c913480ef315754ee75245f8d075dfc43052f3d68000a97*(1-u),
+       0xb393c7d631dead803f5dc7b49d1559edecfc967a1be1ccec9474a5ff4d025004fed4f467c913480ef315754ee75245f8d075dfc43052f3d68000a96*(1+u)*v,
+       0x59c9e3eb18ef56c01faee3da4e8aacf6f67e4b3d0df0e6764a3a52ffa68128027f6a7a33e489a407798abaa773a922fc683aefe2182979eb400054b,0
+        ];
+dual_Xden:=[2*(u+1)*v,
+        1,
+	    0,0];
+dual_Ynum:=[ 0x167278fac63bd5b007ebb8f693a2ab3dbd9f92cf437c399d928e94bfe9a04a009fda9e8cf9226901de62aea9dcea48bf1a0ebbf8860a5e7ad0001524*v,
+        0x59c9e3eb18ef56c01faee3da4e8aacf6f67e4b3d0df0e6764a3a52ffa68128027f6a7a33e489a407798abaa773a922fc683aefe2182979eb4000547+
+        0x10d5dabc14ace04405f0cab8eeba006e4e37ae1b729d2b362deaef8fef38378077e3f6e9bad9cec166ca02ff65afb68f538b0cfa6487c6dc1c000fe4*u,
+        0x10d5dabc14ace04405f0cab8eeba006e4e37ae1b729d2b362deaef8fef38378077e3f6e9bad9cec166ca02ff65afb68f538b0cfa6487c6dc1c000fe1*(1+u)*v,
+        0xe078b9cbbe5658e04f3539a1c45ab069683bbc18a2da4027b991cf7f2042e4063e8a3181bb581a12afdad2a2a126d777049357b53c67b0cc2000d3b];
+dual_Yden:=[ 0x167278fac63bd5b007ebb8f693a2ab3dbd9f92cf437c399d928e94bfe9a04a009fda9e8cf9226901de62aea9dcea48bf1a0ebbf8860a5e7ad000150b*v,
+        0x167278fac63bd5b007ebb8f693a2ab3dbd9f92cf437c399d928e94bfe9a04a009fda9e8cf9226901de62aea9dcea48bf1a0ebbf8860a5e7ad0001513+0x18*u,
+        0x6*(1+u)*v,
+        1];
+
+// Polynomial coefficients of isogeny itself ϕ
+Xnum:=[273728064501339756603462468369185104987958288074891940133644204431064409085893803646700523799946827238917453720697332026264620142876572570883365+6*u,
+	 	 273728064501339756603462468369185104987958288074891940133644204431064409085893803646700523799946827238917453720697332026264620142876572570883370*(1+u)*v,
+	    1,0];
+Xden:=[273728064501339756603462468369185104987958288074891940133644204431064409085893803646700523799946827238917453720697332026264620142876572570883370*(1+u)*v,
+        1,0,0];
+Ynum:=[	 273728064501339756603462468369185104987958288074891940133644204431064409085893803646700523799946827238917453720697332026264620142876572570883363*v,0,
+	 	 273728064501339756603462468369185104987958288074891940133644204431064409085893803646700523799946827238917453720697332026264620142876572570883368*(1+u)*v,
+	    1	];
+Yden:=[	4*v,
+        273728064501339756603462468369185104987958288074891940133644204431064409085893803646700523799946827238917453720697332026264620142876572570883365+6*u,
+	    273728064501339756603462468369185104987958288074891940133644204431064409085893803646700523799946827238917453720697332026264620142876572570883368*(1+u)*v,
+        1
+	    ];
+//*-----------------------------------------------------------------------------------------------------------------------------------------//
+//  Degree of the isogeny (2 in case of the cure BLS24-477)
+degree := 2;
+
+// Computation of the isogeny map foe a point from E
+function iso_map(P)
+    xn:=Xnum[#Xnum];
+    xd:=Xden[#Xnum];
+    yn:=Ynum[#Xnum];
+    yd:=Yden[#Xnum];    
+    x:=P[1];
+    y:=P[2];
+    for i:=2 to #Xnum do
+        xn:=(xn * x) + Xnum[#Xnum-i+1]; 
+        xd:=(xd * x) + Xden[#Xnum-i+1];
+        yn:=(yn * x) + Ynum[#Xnum-i+1];
+        yd:=(yd * x) + Yden[#Xnum-i+1];
+    end for;  
+    xr :=xn/xd;
+    yr:=y*(yn/yd);
+    return IsoE![xr,yr];
+end function;
+
+// Computation of the dual map foe a point from E'
+function dual_iso_map(P)
+    xn:=dual_Xnum[#dual_Xnum];  // assume all polynomial definition arrays are equal sized
+    xd:=dual_Xden[#dual_Xnum];
+    yn:=dual_Ynum[#dual_Xnum];
+    yd:=dual_Yden[#dual_Xnum];    
+    x:=P[1];
+    y:=P[2];
+    for i:=2 to #dual_Xnum do
+        xn:=(xn * x) + dual_Xnum[#dual_Xnum-i+1]; 
+        xd:=(xd * x) + dual_Xden[#dual_Xnum-i+1];
+        yn:=(yn * x) + dual_Ynum[#dual_Xnum-i+1];
+        yd:=(yd * x) + dual_Yden[#dual_Xnum-i+1];
+    end for;  
+    xr :=xn/xd;
+    yr:=y*(yn/yd);
+    return E![xr,yr];
+end function;
+
+//*-----------------------------------------------------------------------------------------------------------------------------------------//
+// Mapping from E' to E
+isoP:=h*Random(IsoE);        // Generate a point on the torsion-sub group of E'
+P := dual_iso_map(isoP);    // Map the generated point to E using the dual Map
+check := P in E;
+print "P is on E :", check ;
+
+// Mapping from E to E'
+isoPNew := iso_map(P);  // compute the mappin of P back to E'
+check := isoPNew in IsoE;
+print "isoP is on E' :", check ;
+
+// check that   ϕ(\bar{ϕ})(P) = [deg(ϕ)](P)
+check :=dual_iso_map(iso_map(P)) eq degree * P;
+print "ϕ(bar{ϕ})(P) = [deg(ϕ)](P) :", check;
+
+// Commpute the modular inverse of the isogeny degree 
+inv_degree:=Fr!(degree)^-1; 
+
+// Check that [inv_degree](\bar{ϕ}) is the inverse to ϕ
+check := Integers()!inv_degree*dual_iso_map(iso_map(P)) eq P;
+print "[deg(ϕ)^(-1)]ϕ(bar{ϕ})(ϕ(P)) = P :", check;
+
+// Check that [inv_degree](\bar{ϕ}) is the inverse to ϕ
+check := Integers()!inv_degree*iso_map(dual_iso_map(isoP)) eq isoP;
+print "[deg(ϕ)^(-1)]ϕ(ϕ(bar{ϕ})(isoP)) = isoP :", check;
+
